@@ -6,3 +6,4 @@ Saved/
 .vscode/
 *.sln
 *.suo
+BuildOutput/

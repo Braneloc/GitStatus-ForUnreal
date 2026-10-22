@@ -67,6 +67,28 @@ git submodule add https://github.com/Braneloc/GitStatus-ForUnreal.git Plugins/Gi
 
 Anyone cloning or pulling that project must also initialise/update its submodules (`git submodule update --init --recursive`), or clone using `git clone --recurse-submodules`. This is why normal file copies are the recommended installation here. An existing tracked plugin folder must be removed from Git before adding a submodule; don't install over it.
 
+## Building Windows binaries (maintainer only)
+
+The plugin source is included in the repository, but **source files are not compiled DLLs**. To distribute a version that doesn't require each recipient to have a compiler, build a binary package against the **same Unreal Engine installation** the recipients use.
+
+From Windows with Unreal Engine installed and Visual Studio C++ build tools available, either double-click `Tools/Build-GitStatus.cmd` or run:
+
+```powershell
+.\Tools\Build-GitStatus.ps1
+```
+
+The script detects `EngineAssociation` from the adjacent project's `.uproject` when present (e.g. 5.7 for one project or 5.8 for another). When run from a standalone source checkout, it defaults to **5.7**. Unreal is expected under `C:\Program Files\Epic Games\UE_5.7` or its matching version folder. To override:
+
+```powershell
+.\Tools\Build-GitStatus.ps1 -EngineVersion 5.7 -EngineRoot 'D:\Epic Games\UE_5.7'
+```
+
+The helper invokes Unreal's `RunUAT.bat BuildPlugin` for `Win64`, then checks that the packaged `GitStatus.uplugin` and compiled DLLs exist. On success, it writes a timestamped, ignored `BuildOutput/GitStatus-UE.../` folder containing a `GitStatus/` package and a ZIP. It **does not delete, replace, or overwrite** the project's source plugin or existing build outputs.
+
+**To try the compiled package:** close Unreal, back up any local changes to `Plugins/GitStatus`, then copy the **packaged** `GitStatus/` folder into the Unreal project's `Plugins/` directory. For a team-ready release, test the package on a clean Windows machine with the matching engine, **without Visual Studio**. Only then commit the packaged binaries or distribute that tested package. Precompiled 5.7 and 5.8 binaries are not interchangeable.
+
+The GitHub repository currently contains build sources and this helper; **no compiled binaries have been produced or verified** in this repository yet.
+
 ## Technical notes
 
 - Source: `Source/GitStatusEditor/`, an editor module with no runtime/game dependencies.
