@@ -13,7 +13,8 @@ public class GitStatusEditor : ModuleRules
             "Slate",
             "SlateCore",
             "ToolMenus",
-            "Projects"
+            "Projects",
+            "DirectoryWatcher"
         });
     }
 }
