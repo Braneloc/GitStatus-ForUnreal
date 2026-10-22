@@ -67,7 +67,10 @@ if ($missing.Count -gt 0) {
     # A packaged binary-only plugin cannot be used as input to BuildPlugin.
     # Its Source/ folder is intentionally absent. Obtain the official source
     # in a separate checkout; do not change the installed 5.7/5.8 plugin.
-    if (Test-Path -LiteralPath (Join-Path $pluginRoot 'Source') -PathType Container) {
+    $existingModuleFiles = @($requiredSource | Where-Object {
+        Test-Path -LiteralPath (Join-Path $pluginRoot $_) -PathType Leaf
+    })
+    if ($existingModuleFiles.Count -gt 0) {
         throw ("Incomplete local GitStatus source. Missing: " + ($missing -join ', ') +
             ". Restore the files from https://github.com/Braneloc/GitStatus-ForUnreal before building.")
     }
@@ -125,7 +128,8 @@ if ($stagedJson.PSObject.Properties.Name -contains 'EngineVersion') {
     $stagedJson.PSObject.Properties.Remove('EngineVersion')
 }
 $stagedJson.Installed = $false
-$stagedJson | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $stagedDescriptor -Encoding UTF8
+$utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+[System.IO.File]::WriteAllText($stagedDescriptor, ($stagedJson | ConvertTo-Json -Depth 20) + [Environment]::NewLine, $utf8NoBom)
 
 Write-Host "Unreal Engine: $EngineRoot"
 Write-Host "Installed plugin: $pluginRoot"
