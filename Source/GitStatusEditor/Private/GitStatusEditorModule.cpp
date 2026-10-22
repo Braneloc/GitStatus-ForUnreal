@@ -1,6 +1,10 @@
 #include "GitStatusEditorModule.h"
 
 #include "Brushes/SlateImageBrush.h"
+#include "DirectoryWatcherModule.h"
+#include "Framework/Application/SlateApplication.h"
+#include "HAL/PlatformTime.h"
+#include "IDirectoryWatcher.h"
 #include "HAL/PlatformProcess.h"
 #include "Interfaces/IPluginManager.h"
 #include "Misc/Paths.h"
@@ -17,7 +21,9 @@
 
 namespace GitStatus
 {
-    constexpr float RefreshIntervalSeconds = 15.0f;
+    constexpr float SchedulerTickSeconds = 1.0f;
+    constexpr double DebounceSeconds = 0.75;
+    constexpr double FallbackSeconds = 120.0;
     const FName ToolbarName(TEXT("LevelEditor.LevelEditorToolBar.PlayToolBar"));
 
     bool RunGit(const FString& Directory, const FString& Command, FString& Output, FString* ErrorMessage = nullptr)
@@ -87,18 +93,32 @@ void FGitStatusEditorModule::StartupModule()
     FSlateStyleRegistry::RegisterSlateStyle(*IconStyle);
 
     RefreshStatus();
+    RegisterWatchers();
+
+    if (FSlateApplication::IsInitialized())
+    {
+        ApplicationActivationHandle = FSlateApplication::Get()
+            .OnApplicationActivationStateChanged()
+            .AddRaw(this, &FGitStatusEditorModule::OnApplicationActivationChanged);
+    }
 
     StartupCallbackHandle = UToolMenus::RegisterStartupCallback(
         FSimpleMulticastDelegate::FDelegate::CreateRaw(this, &FGitStatusEditorModule::RegisterMenus));
 
     RefreshTickerHandle = FTSTicker::GetCoreTicker().AddTicker(
         FTickerDelegate::CreateRaw(this, &FGitStatusEditorModule::Tick),
-        GitStatus::RefreshIntervalSeconds);
+        GitStatus::SchedulerTickSeconds);
 }
 
 void FGitStatusEditorModule::ShutdownModule()
 {
     FTSTicker::GetCoreTicker().RemoveTicker(RefreshTickerHandle);
+    StopWatchers();
+    if (ApplicationActivationHandle.IsValid() && FSlateApplication::IsInitialized())
+    {
+        FSlateApplication::Get().OnApplicationActivationStateChanged().Remove(ApplicationActivationHandle);
+        ApplicationActivationHandle.Reset();
+    }
     UToolMenus::UnRegisterStartupCallback(StartupCallbackHandle);
     UToolMenus::UnregisterOwner(this);
 
@@ -109,14 +129,39 @@ void FGitStatusEditorModule::ShutdownModule()
     }
 }
 
+void FGitStatusEditorModule::QueueRefresh(double DelaySeconds)
+{
+    bRefreshRequested = true;
+    RefreshAfterSeconds = FPlatformTime::Seconds() + DelaySeconds;
+}
+
+void FGitStatusEditorModule::OnApplicationActivationChanged(const bool bIsActive)
+{
+    if (bIsActive)
+    {
+        QueueRefresh(0.0);
+    }
+}
+
 bool FGitStatusEditorModule::Tick(float DeltaSeconds)
 {
-    RefreshStatus();
+    if (bDirectoryChangePending.exchange(false))
+    {
+        QueueRefresh(GitStatus::DebounceSeconds);
+    }
+    const double Now = FPlatformTime::Seconds();
+    if ((bRefreshRequested && Now >= RefreshAfterSeconds)
+        || (Now - LastRefreshSeconds >= GitStatus::FallbackSeconds))
+    {
+        bRefreshRequested = false;
+        RefreshStatus();
+    }
     return true;
 }
 
 void FGitStatusEditorModule::RefreshStatus()
 {
+    LastRefreshSeconds = FPlatformTime::Seconds();
     // The .uproject may live below the Git root or in a separate Git worktree.
     const FString Directory = FPaths::ConvertRelativePathToFull(FPaths::ProjectDir());
     FString Output;
