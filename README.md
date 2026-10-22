@@ -16,11 +16,11 @@ The repository name is obtained from the local `origin` remote URL when availabl
 
 [Download GitStatus for Unreal 5.7 (Win64, binary-only test package)](Distributions/GitStatus-UE5.7-Win64-Test.zip)
 
-This build was supplied after a successful Unreal `BuildPlugin` run. It includes the compiled Windows x64 editor DLL, `UnrealEditor.modules`, the plugin descriptor and the branch-icon resources; it omits debugging symbols and intermediate build files. The archive reports **Unreal Engine 5.7.0**, Build ID `47537391` and GitStatus version `0.2.1`. The complete packaged build has **not yet been smoke-tested in a running Unreal Editor**.
+This build was supplied after a successful Unreal `BuildPlugin` run. It includes the compiled Windows x64 editor DLL, `UnrealEditor.modules`, the plugin descriptor and the branch-icon resources and the Plugin Browser icon; it omits debugging symbols and intermediate build files. The archive reports **Unreal Engine 5.7.0**, Build ID `47537391` and GitStatus version `0.2.1`. The 5.7 binary **loaded successfully in a local Unreal 5.7 editor test**. That confirms the test installation, not compatibility with every Unreal Engine build or PC.
 
 To test: **close Unreal**, preserve any edits to an existing `Plugins/GitStatus` directory, then extract the archive so that `GitStatus.uplugin` is located at `<UnrealProject>/Plugins/GitStatus/GitStatus.uplugin`. Launch that project with the matching Unreal 5.7 Windows installation. If it reports a different engine/module Build ID, don't manually force the build ID—use an appropriately compiled package instead.
 
-**Do not install this DLL in an Unreal 5.8 project.** The source-based installation instructions below remain suitable for compiling on other engine versions. This test archive is deliberately stored under `Distributions/`, outside the active plugin's `Binaries/` directory.
+**Do not install this DLL in an Unreal 5.8 project.** The C++ source may compile without changes in 5.8, but an Unreal 5.8 binary **must be built with a matching 5.8 toolchain and engine build**. Use the build helper below and test the resulting plugin separately. This test archive is deliberately stored under `Distributions/`, outside the active plugin's `Binaries/` directory.
 
 ## Install into a project (recommended: normal project files)
 
@@ -97,17 +97,17 @@ The helper invokes Unreal's `RunUAT.bat BuildPlugin` for `Win64`, then checks th
 
 **To try the compiled package:** close Unreal, back up any local changes to `Plugins/GitStatus`, then copy the **packaged** `GitStatus/` folder into the Unreal project's `Plugins/` directory. For a team-ready release, test the package on a clean Windows machine with the matching engine, **without Visual Studio**. Only then commit the packaged binaries or distribute that tested package. Precompiled 5.7 and 5.8 binaries are not interchangeable.
 
-The GitHub repository currently contains build sources and this helper; **no compiled binaries have been produced or verified** in this repository yet.
+The repository includes the **Unreal 5.7 Win64 test binary** under `Distributions/`; it does **not** currently include a 5.8 binary. The build helper can produce an engine-specific package on a Windows development machine.
 
 ## Technical notes
 
 - Source: `Source/GitStatusEditor/`, an editor module with no runtime/game dependencies.
-- Icon: official GitHub Primer Octicons `git-branch-16.svg`, with MIT licence in `Resources/LICENSE-OCTICONS.txt`.
+- Icons: official GitHub Primer Octicons `git-branch-16.svg` for the toolbar, plus `Resources/Icon128.png` (128×128) for the Unreal Plugin Browser; the icon source is covered by the MIT licence in `Resources/LICENSE-OCTICONS.txt`.
 - Git executable must be on PATH; the plugin reads local Git status only.
 - Toolbar placement requests the right/end of the Play toolbar, but Unreal determines final layout.
 - Untracked files count as changes; ignored files don't.
 - Git runs synchronously. Exceptionally large working trees may briefly pause the editor during a status check.
-- **The plugin still requires its first compile/runtime check in Unreal Editor**; source publication does not establish binary compatibility.
+- The **Unreal 5.7 test DLL has loaded successfully in the editor**. Unreal 5.8 requires its own compilation and load test; version-specific binary compatibility must not be assumed.
 - Close Unreal before changing branches that replace open `.uasset` or `.umap` files.
 
 ## Notes
