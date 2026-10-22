@@ -39,6 +39,14 @@ GitStatus remains **read-only**: it does not fetch, merge, pull, push, or change
 
 **Version 0.3.1 has not yet been compiled and runtime-tested on Unreal 5.7 or 5.8.** The published 5.7 ZIP is still the working 0.2.1 binary. Do not replace the team build until 0.3.1 has been tested.
 
+## GitStatus 0.3.1 — Unreal 5.7 test package
+
+[Download 0.3.1 Unreal 5.7 Win64 test package](Distributions/GitStatus-UE5.7-Win64-v0.3.1-Test.zip)
+
+A new compiled **Win64 Unreal 5.7** plugin was supplied after the 0.3.1 source update. It includes the `Development ↓behind ↑ahead` indicator, directory-watcher refresh, Unreal focus refresh and two-minute fallback. The package contains the plugin descriptor, DLL, `UnrealEditor.modules`, branch icon and icon licence; no debugging symbols or intermediate build files are included.
+
+The package has passed ZIP-integrity, source-revision, version/architecture and Unreal Build ID checks. **It has not yet been opened and tested in an Unreal 5.7 Editor.** The earlier working 0.2.1 package remains below. Do not deploy 0.3.1 to the entire team until that test succeeds.
+
 ## Precompiled Windows test build — Unreal 5.7
 
 [Download GitStatus for Unreal 5.7 (Win64, binary-only test package)](Distributions/GitStatus-UE5.7-Win64-Test.zip)
