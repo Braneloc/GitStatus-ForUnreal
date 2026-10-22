@@ -1,0 +1,20 @@
+{
+  "FileVersion": 3,
+  "Version": 3,
+  "VersionName": "0.2.1",
+  "FriendlyName": "GitStatus",
+  "Description": "Read-only Git repository and branch indicator in the Unreal Editor Play toolbar, automatically refreshed every 15 seconds.",
+  "Category": "Editor",
+  "CreatedBy": "GitStatus Contributors",
+  "CanContainContent": false,
+  "IsBetaVersion": true,
+  "Installed": false,
+  "EnabledByDefault": true,
+  "Modules": [
+    {
+      "Name": "GitStatusEditor",
+      "Type": "Editor",
+      "LoadingPhase": "Default"
+    }
+  ]
+}

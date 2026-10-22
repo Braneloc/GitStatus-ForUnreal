@@ -1,0 +1,8 @@
+# Unreal-generated plugin build output (never commit)
+Binaries/
+Intermediate/
+Saved/
+.vs/
+.vscode/
+*.sln
+*.suo
