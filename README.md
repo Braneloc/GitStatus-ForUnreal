@@ -88,3 +88,10 @@ Copy the **contents of this repository** into `<UnrealProject>/Plugins/GitStatus
 - Checking Git is synchronous; exceptionally large working trees may momentarily pause the editor.
 - **Not yet compiled or smoke-tested in Unreal Editor**; validate on your installed engine version.
 - Close Unreal before switching Git branches affecting loaded `.uasset` or `.umap` files.
+
+## Notes
+
+- Disclaimer: Parts of this project were co-created by ChatGPT.
+
+## Party on dudes  
+![](https://avatars.githubusercontent.com/u/9757397?s=96&v=4)
