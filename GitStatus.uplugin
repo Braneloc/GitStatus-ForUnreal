@@ -5,7 +5,7 @@
   "FriendlyName": "GitStatus",
   "Description": "Read-only Git repository and branch indicator in the Unreal Editor Play toolbar, automatically refreshed every 15 seconds.",
   "Category": "Editor",
-  "CreatedBy": "GitStatus Contributors",
+  "CreatedBy": "Braneloc and ChatGPT",
   "CanContainContent": false,
   "IsBetaVersion": true,
   "Installed": false,
@@ -16,5 +16,7 @@
       "Type": "Editor",
       "LoadingPhase": "Default"
     }
-  ]
+  ],
+  "CreatedByURL": "https://github.com/Braneloc/GitStatus-ForUnreal",
+  "ExplicitlyLoaded": false
 }
