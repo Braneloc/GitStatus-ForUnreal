@@ -18,13 +18,26 @@ Next to the existing repository / branch / Clean-or-Modified display, GitStatus 
 
 The comparison **prefers `origin/Development`** when that remote-tracking branch exists, otherwise uses the remote's default `origin/HEAD` reference (e.g. `main`). If neither is available it hides the comparison rather than inventing a status.
 
-**Fetch Origin in GitHub Desktop or SourceTree to update the remote-tracking references.** GitStatus itself does not fetch or merge: it reads your local Git state using `git rev-list --left-right --count origin/Development...HEAD`. The display refreshes on the existing 15-second timer and requires no Git upstream reconfiguration. Pull Origin still tracks each person's own personal remote branch.
+**Fetch Origin in GitHub Desktop or SourceTree to update the remote-tracking references.** GitStatus itself does not fetch or merge: it reads your local Git state using `git rev-list --left-right --count origin/Development...HEAD`. The display refreshes on relevant file-system events, when Unreal regains focus, or at the two-minute fallback. It requires no Git upstream reconfiguration. Pull Origin still tracks each person's own personal remote branch.
 
-Hover for detailed repository, file and divergence information. Changed/untracked entries are shown correctly as **1 entry** or **N entries**. The status refreshes every 15 seconds; the interval is not displayed in the tooltip.
+Hover for detailed repository, file and divergence information. Changed/untracked entries are shown correctly as **1 entry** or **N entries**. The status refreshes on relevant changes, focus return, and a two-minute fallback; the interval is not displayed in the tooltip.
 
 **The existing precompiled Unreal 5.7 ZIP is version 0.2.1 and does not include this feature.** Compile GitStatus 0.3.0 for Unreal 5.7 / 5.8 and test it before replacing any installed binaries.
 
 The repository name is obtained from the local `origin` remote URL when available, with a fallback to the local repository folder. Supports Git worktrees and nested Unreal project folders. **Read-only:** does not switch branches, fetch, stage, pull, push or modify files.
+
+### Automatic refresh (source version 0.3.1)
+
+- **Git metadata watchers** detect branch changes, commits, merges, and updates to fetched remote references. Worktree-specific Git metadata and shared refs are watched separately.
+- **Project folder watchers** cover Unreal project files, Content, Config, Source, and Plugins. Generated Saved, Intermediate, Binaries, and build output changes are ignored.
+- A **0.75-second debounce** coalesces bursts of changes before Git status is read. Watcher callbacks only mark the state as dirty; Git commands run on the editor ticker.
+- Regaining focus in Unreal requests a refresh.
+- A **two-minute fallback check** catches missed events, directories that could not be watched, and changes outside those project folders.
+- A light one-second scheduling tick checks for pending work; **it does not run Git once a second**.
+
+GitStatus remains **read-only**: it does not fetch, merge, pull, push, or change Git upstream configuration. Use Fetch Origin in SourceTree/GitHub Desktop to update remote references, and GitStatus will notice the changes. The previous 15-second Git polling has been removed.
+
+**Version 0.3.1 has not yet been compiled and runtime-tested on Unreal 5.7 or 5.8.** The published 5.7 ZIP is still the working 0.2.1 binary. Do not replace the team build until 0.3.1 has been tested.
 
 ## Precompiled Windows test build — Unreal 5.7
 
