@@ -87,17 +87,29 @@ From Windows with Unreal Engine installed and Visual Studio C++ build tools avai
 .\Tools\Build-GitStatus.ps1
 ```
 
-The script detects `EngineAssociation` from the adjacent project's `.uproject` when present (e.g. 5.7 for one project or 5.8 for another). When run from a standalone source checkout, it defaults to **5.7**. Unreal is expected under `C:\Program Files\Epic Games\UE_5.7` or its matching version folder. To override:
+The script detects `EngineAssociation` from the adjacent project's `.uproject` when present (e.g. 5.7 or 5.8). When run from a standalone source checkout, it defaults to **5.7**. Unreal is expected under `C:\Program Files\Epic Games\UE_5.7` or its matching version folder. To override:
 
 ```powershell
 .\Tools\Build-GitStatus.ps1 -EngineVersion 5.7 -EngineRoot 'D:\Epic Games\UE_5.7'
 ```
 
-The helper invokes Unreal's `RunUAT.bat BuildPlugin` for `Win64`, then checks that the packaged `GitStatus.uplugin` and compiled DLLs exist. On success, it writes a timestamped, ignored `BuildOutput/GitStatus-UE.../` folder containing a `GitStatus/` package and a ZIP. It **does not delete, replace, or overwrite** the project's source plugin or existing build outputs.
+The helper invokes Unreal's `RunUAT.bat BuildPlugin` for `Win64` from a **clean staged source copy**, then checks that the packaged `GitStatus.uplugin` and compiled DLLs exist. On success, it writes a timestamped, ignored `BuildOutput/GitStatus-UE.../` folder containing a `GitStatus/` package and a ZIP. It **does not delete, replace, or overwrite** the project's installed plugin or existing build outputs.
 
 **To try the compiled package:** close Unreal, back up any local changes to `Plugins/GitStatus`, then copy the **packaged** `GitStatus/` folder into the Unreal project's `Plugins/` directory. For a team-ready release, test the package on a clean Windows machine with the matching engine, **without Visual Studio**. Only then commit the packaged binaries or distribute that tested package. Precompiled 5.7 and 5.8 binaries are not interchangeable.
 
 The repository includes the **Unreal 5.7 Win64 test binary** under `Distributions/`; it does **not** currently include a 5.8 binary. The build helper can produce an engine-specific package on a Windows development machine.
+
+
+
+### Building from a binary-only installation (including Unreal 5.8)
+
+**The Unreal 5.7 precompiled ZIP deliberately omits `Source/`.** If you installed it into a project and then run `Tools/Build-GitStatus.cmd` in Unreal 5.8, the original build helper reports `Could not find definition for module 'GitStatusEditor'`. UBT needs the module's `Source/GitStatusEditor/GitStatusEditor.Build.cs` file to build. That error occurs **before any C++ compilation**.
+
+The updated helper handles this automatically: if the entire `Source/` directory is missing, it downloads the latest **main** branch of this repository into an isolated checkout inside `BuildOutput/`, stages only `GitStatus.uplugin`, `Source/` and `Resources/` (plus the README), and runs BuildPlugin on that clean staging copy. The installed plugin and any 5.7 DLL remain untouched. Git and internet access are required **only when local source is absent**.
+
+If `Source/` exists but is incomplete, the script stops with a missing-file error instead of silently mixing local code with downloaded code. Restore the source from this repository in that case. An Unreal Engine 5.8 build still needs the appropriate **Windows C++ compiler/toolchain**; finding the module does not guarantee that the plugin source will compile without additional 5.8 API changes.
+
+After a successful build, close Unreal and install the packaged `GitStatus/` folder from `BuildOutput/` in your 5.8 project, replacing only the plugin folder after safeguarding local edits. Do **not** install or reuse a 5.7 `Binaries/` folder in Unreal 5.8.
 
 ## Technical notes
 

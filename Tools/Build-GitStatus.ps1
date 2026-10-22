@@ -1,6 +1,6 @@
-# GitStatus Windows packaging helper.
-# Requires an installed Unreal Engine and the matching Windows C++ toolchain.
-# Builds in a new timestamped folder; never deletes source or an existing build.
+# GitStatus Windows plugin packaging helper.
+# Packages from a clean source staging directory so previously installed
+# binary-only builds or Unreal build leftovers cannot enter the new package.
 [CmdletBinding()]
 param(
     [string]$EngineRoot,
@@ -8,19 +8,24 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+
 $pluginRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..')).Path
 $projectRoot = (Resolve-Path -LiteralPath (Join-Path $pluginRoot '..\..')).Path
-$pluginFile = Join-Path $pluginRoot 'GitStatus.uplugin'
+$installedDescriptor = Join-Path $pluginRoot 'GitStatus.uplugin'
 
-if (-not (Test-Path -LiteralPath $pluginFile -PathType Leaf)) {
-    throw "Missing GitStatus.uplugin in $pluginRoot"
+if (-not (Test-Path -LiteralPath $installedDescriptor -PathType Leaf)) {
+    throw "GitStatus.uplugin not found: $installedDescriptor"
 }
 
-# When installed in a game project, use the .uproject EngineAssociation.
-# When run from the standalone plugin checkout, default to team engine 5.7.
+$descriptor = Get-Content -LiteralPath $installedDescriptor -Raw | ConvertFrom-Json
+if (-not ($descriptor.Modules | Where-Object { $_.Name -eq 'GitStatusEditor' })) {
+    throw 'GitStatus.uplugin does not declare the GitStatusEditor module.'
+}
+
+$projectFile = Get-ChildItem -LiteralPath $projectRoot -Filter '*.uproject' -File -ErrorAction SilentlyContinue |
+    Select-Object -First 1
+
 if ([string]::IsNullOrWhiteSpace($EngineVersion)) {
-    $projectFile = Get-ChildItem -LiteralPath $projectRoot -Filter '*.uproject' -File -ErrorAction SilentlyContinue |
-        Select-Object -First 1
     if ($projectFile) {
         $association = (Get-Content -LiteralPath $projectFile.FullName -Raw | ConvertFrom-Json).EngineAssociation
         if ($association -match '^(5\.\d+)') {
@@ -36,45 +41,133 @@ if ([string]::IsNullOrWhiteSpace($EngineRoot)) {
     $EngineRoot = Join-Path 'C:\Program Files\Epic Games' ('UE_' + $EngineVersion)
 }
 $runUAT = Join-Path $EngineRoot 'Engine\Build\BatchFiles\RunUAT.bat'
-
 if (-not (Test-Path -LiteralPath $runUAT -PathType Leaf)) {
-    throw "Cannot find RunUAT.bat at $runUAT. Run with -EngineRoot 'D:\Path\To\UE_$EngineVersion' if Unreal is installed elsewhere."
+    throw "Unreal Engine's RunUAT.bat was not found at: $runUAT. Use -EngineRoot to specify your installation."
 }
 
 $stamp = Get-Date -Format 'yyyyMMdd-HHmmssfff'
 $outputFolder = Join-Path $pluginRoot ('BuildOutput\GitStatus-UE' + $EngineVersion + '-Win64-' + $stamp)
+$checkoutFolder = Join-Path $outputFolder 'SourceCheckout'
+$stageFolder = Join-Path $outputFolder 'SourcePlugin'
 $packageFolder = Join-Path $outputFolder 'GitStatus'
 $archivePath = Join-Path $outputFolder ('GitStatus-UE' + $EngineVersion + '-Win64.zip')
-New-Item -ItemType Directory -Path $outputFolder -Force | Out-Null
+
+$requiredSource = @(
+    'Source\GitStatusEditor\GitStatusEditor.Build.cs',
+    'Source\GitStatusEditor\Private\GitStatusEditorModule.cpp',
+    'Source\GitStatusEditor\Private\GitStatusEditorModule.h'
+)
+$missing = @($requiredSource | Where-Object {
+    -not (Test-Path -LiteralPath (Join-Path $pluginRoot $_) -PathType Leaf)
+})
+$sourceRoot = $pluginRoot
+$downloaded = $false
+
+if ($missing.Count -gt 0) {
+    # A packaged binary-only plugin cannot be used as input to BuildPlugin.
+    # Its Source/ folder is intentionally absent. Obtain the official source
+    # in a separate checkout; do not change the installed 5.7/5.8 plugin.
+    if (Test-Path -LiteralPath (Join-Path $pluginRoot 'Source') -PathType Container) {
+        throw ("Incomplete local GitStatus source. Missing: " + ($missing -join ', ') +
+            ". Restore the files from https://github.com/Braneloc/GitStatus-ForUnreal before building.")
+    }
+
+    Write-Host 'Binary-only GitStatus installation detected (no Source module).' -ForegroundColor Yellow
+    Write-Host 'Fetching a clean copy of the GitStatus source for this build.'
+    $git = Get-Command git -ErrorAction SilentlyContinue
+    if (-not $git) {
+        throw 'Git is required to fetch missing plugin source. Install Git, or copy the full upstream Source folder to Plugins/GitStatus/Source.'
+    }
+
+    New-Item -ItemType Directory -Path $outputFolder -Force | Out-Null
+    & $git.Source clone --quiet --depth 1 --branch main -- 'https://github.com/Braneloc/GitStatus-ForUnreal.git' $checkoutFolder
+    if ($LASTEXITCODE -ne 0) {
+        throw "Cannot fetch GitStatus source (git exit $LASTEXITCODE). Ensure GitHub is reachable."
+    }
+
+    $sourceRoot = $checkoutFolder
+    $downloaded = $true
+}
+
+foreach ($relativePath in $requiredSource) {
+    if (-not (Test-Path -LiteralPath (Join-Path $sourceRoot $relativePath) -PathType Leaf)) {
+        throw "Missing module source file: $(Join-Path $sourceRoot $relativePath). Cannot package."
+    }
+}
+
+# Always build from a clean staging copy outside the installed plugin's
+# directories. Excludes Binaries/, Intermediate/, Distributions/, BuildOutput/
+# and .git/ from the source input, including any incompatible 5.7 DLL.
+New-Item -ItemType Directory -Path $stageFolder -Force | Out-Null
+foreach ($file in @('GitStatus.uplugin', 'README.md')) {
+    $sourcePath = Join-Path $sourceRoot $file
+    if (Test-Path -LiteralPath $sourcePath -PathType Leaf) {
+        Copy-Item -LiteralPath $sourcePath -Destination $stageFolder -Force
+    }
+}
+foreach ($folder in @('Source', 'Resources')) {
+    $sourcePath = Join-Path $sourceRoot $folder
+    if (-not (Test-Path -LiteralPath $sourcePath -PathType Container)) {
+        throw "GitStatus $folder directory not found at $sourcePath"
+    }
+    Copy-Item -LiteralPath $sourcePath -Destination $stageFolder -Recurse -Force
+}
+
+$stagedDescriptor = Join-Path $stageFolder 'GitStatus.uplugin'
+if (-not (Test-Path -LiteralPath $stagedDescriptor -PathType Leaf)) {
+    throw "No source plugin descriptor was staged at $stagedDescriptor"
+}
+
+# The descriptor from a binary-only 5.7 package can include EngineVersion
+# metadata. The staged source descriptor must be engine-independent.
+$stagedJson = Get-Content -LiteralPath $stagedDescriptor -Raw | ConvertFrom-Json
+if ($stagedJson.PSObject.Properties.Name -contains 'EngineVersion') {
+    $stagedJson.PSObject.Properties.Remove('EngineVersion')
+}
+$stagedJson.Installed = $false
+$stagedJson | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $stagedDescriptor -Encoding UTF8
 
 Write-Host "Unreal Engine: $EngineRoot"
-Write-Host "Source plugin: $pluginFile"
+Write-Host "Installed plugin: $pluginRoot"
+Write-Host "Build source: $sourceRoot"
+Write-Host "Source recovered from GitHub: $downloaded"
+Write-Host "Staged plugin: $stagedDescriptor"
 Write-Host "Package folder: $packageFolder"
-Write-Host 'Building plugin (Win64 editor)...'
-& $runUAT BuildPlugin "-Plugin=$pluginFile" "-Package=$packageFolder" -TargetPlatforms=Win64 -Rocket
+Write-Host 'Building GitStatus editor plugin for Win64...'
+
+& $runUAT BuildPlugin "-Plugin=$stagedDescriptor" "-Package=$packageFolder" -TargetPlatforms=Win64 -Rocket
 if ($LASTEXITCODE -ne 0) {
-    throw "RunUAT BuildPlugin failed with exit code $LASTEXITCODE. No distributable package was produced."
+    throw "RunUAT BuildPlugin failed with exit code $LASTEXITCODE. Build staging and logs remain in $outputFolder"
 }
 
 $packagedDescriptor = Join-Path $packageFolder 'GitStatus.uplugin'
 $binaryFolder = Join-Path $packageFolder 'Binaries\Win64'
 if (-not (Test-Path -LiteralPath $packagedDescriptor -PathType Leaf)) {
-    throw 'Build reported success, but the packaged plugin descriptor is missing.'
+    throw 'Build reported success but the packaged plugin descriptor is missing.'
 }
 if (-not (Test-Path -LiteralPath $binaryFolder -PathType Container)) {
-    throw 'Build reported success, but packaged Binaries/Win64 is missing.'
+    throw 'Build reported success but Binaries/Win64 is missing.'
 }
 $dlls = @(Get-ChildItem -LiteralPath $binaryFolder -Recurse -Filter '*.dll' -File)
 if ($dlls.Count -eq 0) {
-    throw 'Build reported success, but no Win64 plugin DLL was produced.'
+    throw 'Build reported success but no Win64 plugin DLL was produced.'
+}
+
+# Remove only our own temporary staging directories after a successful build.
+# Never touch the plugin currently installed in an Unreal project.
+if (Test-Path -LiteralPath $checkoutFolder) {
+    Remove-Item -LiteralPath $checkoutFolder -Recurse -Force
+}
+if (Test-Path -LiteralPath $stageFolder) {
+    Remove-Item -LiteralPath $stageFolder -Recurse -Force
 }
 
 Compress-Archive -LiteralPath $packageFolder -DestinationPath $archivePath -CompressionLevel Optimal
+
 Write-Host ''
 Write-Host 'BUILD COMPLETE' -ForegroundColor Green
-Write-Host "Found $($dlls.Count) plugin DLL(s):"
+Write-Host "Found $($dlls.Count) Win64 plugin DLL(s):"
 $dlls | ForEach-Object { Write-Host ('  ' + $_.Name) }
 Write-Host "Packaged plugin: $packageFolder"
-Write-Host "Distributable archive: $archivePath"
-Write-Host 'To test, close Unreal and install the packaged GitStatus directory in your project.'
-Write-Host 'The archive can also be supplied for committing verified binaries into the game repository.'
+Write-Host "Distributable ZIP: $archivePath"
+Write-Host 'Close Unreal before installing the new package. Preserve local plugin edits.'
