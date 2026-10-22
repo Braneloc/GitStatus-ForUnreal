@@ -20,12 +20,19 @@ private:
 
     FString GetStatus() const;
     FText GetToolbarLabel() const;
+    FText GetComparisonLabel() const;
     FText GetToolbarTooltip() const;
     FSlateColor GetStatusColor() const;
+    FSlateColor GetComparisonColor() const;
 
     FString Repository;
     FString Branch;
     FString Details;
+    FString ComparisonBranch;
+    FString ComparisonDetails;
+    int32 BehindComparison = 0;
+    int32 AheadComparison = 0;
+    bool bComparisonAvailable = false;
     bool bAvailable = false;
     bool bHasChanges = false;
 

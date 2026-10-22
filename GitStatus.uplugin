@@ -1,9 +1,9 @@
 {
   "FileVersion": 3,
-  "Version": 3,
-  "VersionName": "0.2.1",
+  "Version": 4,
+  "VersionName": "0.3.0",
   "FriendlyName": "GitStatus",
-  "Description": "Read-only Git repository and branch indicator in the Unreal Editor Play toolbar, automatically refreshed every 15 seconds.",
+  "Description": "Read-only Git status and divergence from the shared Development/default branch in the Unreal Editor toolbar; automatically refreshed every 15 seconds.",
   "Category": "Editor",
   "CreatedBy": "Braneloc and ChatGPT",
   "CanContainContent": false,

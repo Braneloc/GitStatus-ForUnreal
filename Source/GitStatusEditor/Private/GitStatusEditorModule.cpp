@@ -122,6 +122,13 @@ void FGitStatusEditorModule::RefreshStatus()
     FString Output;
     FString Error;
 
+    // Never retain divergence figures when switching projects or repositories.
+    bComparisonAvailable = false;
+    ComparisonBranch.Empty();
+    ComparisonDetails = TEXT("No local origin default branch reference found. Fetch Origin to refresh.");
+    BehindComparison = 0;
+    AheadComparison = 0;
+
     if (!GitStatus::RunGit(
             Directory,
             TEXT("-c core.quotePath=false status --porcelain=v1 --branch --untracked-files=normal"),
@@ -201,6 +208,53 @@ void FGitStatusEditorModule::RefreshStatus()
 
     Details = FString::Printf(TEXT("Repository: %s\n%s\n%s"),
         *Repository, *Lines[0], *ChangeSummary);
+
+    // Compare HEAD with the shared integration branch WITHOUT changing its
+    // upstream or contacting the network. The next 15-second tick notices
+    // updated origin/* references after GitHub Desktop / SourceTree fetches.
+    //
+    // Teams using Development get that branch preferentially. Other projects
+    // fall back to origin/HEAD, i.e. their configured remote default branch.
+    FString Unused;
+    FString RemoteReference;
+    if (GitStatus::RunGit(
+        Directory, TEXT("show-ref --verify --quiet refs/remotes/origin/Development"), Unused))
+    {
+        RemoteReference = TEXT("origin/Development");
+    }
+    else
+    {
+        GitStatus::RunGit(
+            Directory, TEXT("symbolic-ref --quiet --short refs/remotes/origin/HEAD"),
+            RemoteReference);
+    }
+
+    if (!RemoteReference.IsEmpty())
+    {
+        FString CountsText;
+        if (GitStatus::RunGit(
+                Directory,
+                FString::Printf(TEXT("rev-list --left-right --count \"%s...HEAD\""),
+                    *RemoteReference),
+                CountsText))
+        {
+            TArray<FString> Counts;
+            CountsText.ParseIntoArray(Counts, TEXT("\t"), true);
+            if (Counts.Num() == 2 && Counts[0].IsNumeric() && Counts[1].IsNumeric())
+            {
+                BehindComparison = FCString::Atoi(*Counts[0]);
+                AheadComparison = FCString::Atoi(*Counts[1]);
+                ComparisonBranch = RemoteReference;
+                ComparisonBranch.RemoveFromStart(TEXT("origin/"));
+                bComparisonAvailable = true;
+                ComparisonDetails = FString::Printf(
+                    TEXT("Compared with %s: %d behind, %d ahead.\n"
+                         "Uses locally cached remote refs; Fetch Origin to refresh.\n"
+                         "No merges or branch changes are performed."),
+                    *RemoteReference, BehindComparison, AheadComparison);
+            }
+        }
+    }
 }
 
 FString FGitStatusEditorModule::GetStatus() const
@@ -220,6 +274,24 @@ FText FGitStatusEditorModule::GetToolbarLabel() const
         *Repository, *Branch, *GetStatus()));
 }
 
+FText FGitStatusEditorModule::GetComparisonLabel() const
+{
+    if (!bComparisonAvailable)
+    {
+        return FText::GetEmpty();
+    }
+
+    return FText::FromString(FString::Printf(TEXT("%s  ↓%d ↑%d"),
+        *ComparisonBranch, BehindComparison, AheadComparison));
+}
+
+FSlateColor FGitStatusEditorModule::GetComparisonColor() const
+{
+    return BehindComparison > 0
+        ? FSlateColor(FLinearColor(0.98f, 0.70f, 0.27f))
+        : FSlateColor(FLinearColor(0.33f, 0.80f, 0.45f));
+}
+
 FSlateColor FGitStatusEditorModule::GetStatusColor() const
 {
     if (!bAvailable)
@@ -234,8 +306,9 @@ FSlateColor FGitStatusEditorModule::GetStatusColor() const
 FText FGitStatusEditorModule::GetToolbarTooltip() const
 {
     return FText::FromString(FString::Printf(
-        TEXT("Unreal project: %s\n%s\nLocal Git status only; no fetch, branch changes or file modifications."),
-        *FPaths::ProjectDir(), *Details));
+        TEXT("Unreal project: %s\n%s\n%s\n"
+             "Read-only Git status: no automatic fetch, merge, push or file modifications."),
+        *FPaths::ProjectDir(), *Details, *ComparisonDetails));
 }
 
 void FGitStatusEditorModule::RegisterMenus()
@@ -271,6 +344,19 @@ void FGitStatusEditorModule::RegisterMenus()
         [
             SNew(STextBlock)
             .Text_Lambda([this]() { return GetToolbarLabel(); })
+            .ToolTipText_Lambda([this]() { return GetToolbarTooltip(); })
+        ]
+        + SHorizontalBox::Slot()
+        .AutoWidth()
+        .VAlign(VAlign_Center)
+        .Padding(8.0f, 0.0f, 3.0f, 0.0f)
+        [
+            SNew(STextBlock)
+            .Text_Lambda([this]() { return GetComparisonLabel(); })
+            .ColorAndOpacity_Lambda([this]() { return GetComparisonColor(); })
+            .Visibility_Lambda([this]() {
+                return bComparisonAvailable ? EVisibility::Visible : EVisibility::Collapsed;
+            })
             .ToolTipText_Lambda([this]() { return GetToolbarTooltip(); })
         ],
         LOCTEXT("GitStatusToolbar", "Git Status"),

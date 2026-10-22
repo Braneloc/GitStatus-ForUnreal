@@ -1,6 +1,6 @@
 # GitStatus for Unreal
 
-A lightweight, **editor-only C++ Unreal Engine plugin** showing the current Git repository, branch and working-tree status alongside the Level Editor's Play controls. No Blueprint nodes, buttons, GitHub login or network requests.
+A lightweight, **editor-only C++ Unreal Engine plugin** showing the current Git repository, branch, working-tree status, and how far the current branch is ahead of or behind the team's shared branch alongside the Level Editor's Play controls. No Blueprint nodes, buttons, GitHub login or network requests.
 
 GitHub's **git-branch Octicon** indicates local status:
 
@@ -8,7 +8,21 @@ GitHub's **git-branch Octicon** indicates local status:
 - Amber: `ExampleProject / feature/example (Modified)`
 - Red: `Git: unavailable` (Git missing or project not in a Git checkout)
 
-Hover for Git status details. The number of changed/untracked entries is shown correctly as **1 entry** or **N entries**. The status refreshes automatically when the editor starts and every 15 seconds; the interval is not displayed in the tooltip.
+## Shared-branch status (source version 0.3.0)
+
+Next to the existing repository / branch / Clean-or-Modified display, GitStatus shows the divergence from the shared branch, for example:
+
+- `Keith-DragonCare / Clean    Development ↓14 ↑3`: 14 commits from Development are missing locally, and your branch has three commits not yet in Development.
+- `Keith-DragonCare / Clean    Development ↓0 ↑4`: your branch contains everything currently fetched from Development.
+- Amber comparison text means shared updates are waiting; green means none are waiting.
+
+The comparison **prefers `origin/Development`** when that remote-tracking branch exists, otherwise uses the remote's default `origin/HEAD` reference (e.g. `main`). If neither is available it hides the comparison rather than inventing a status.
+
+**Fetch Origin in GitHub Desktop or SourceTree to update the remote-tracking references.** GitStatus itself does not fetch or merge: it reads your local Git state using `git rev-list --left-right --count origin/Development...HEAD`. The display refreshes on the existing 15-second timer and requires no Git upstream reconfiguration. Pull Origin still tracks each person's own personal remote branch.
+
+Hover for detailed repository, file and divergence information. Changed/untracked entries are shown correctly as **1 entry** or **N entries**. The status refreshes every 15 seconds; the interval is not displayed in the tooltip.
+
+**The existing precompiled Unreal 5.7 ZIP is version 0.2.1 and does not include this feature.** Compile GitStatus 0.3.0 for Unreal 5.7 / 5.8 and test it before replacing any installed binaries.
 
 The repository name is obtained from the local `origin` remote URL when available, with a fallback to the local repository folder. Supports Git worktrees and nested Unreal project folders. **Read-only:** does not switch branches, fetch, stage, pull, push or modify files.
 
@@ -115,7 +129,7 @@ After a successful build, close Unreal and install the packaged `GitStatus/` fol
 
 - Source: `Source/GitStatusEditor/`, an editor module with no runtime/game dependencies.
 - Icons: official GitHub Primer Octicons `git-branch-16.svg` for the toolbar, plus `Resources/Icon128.png` (128×128) for the Unreal Plugin Browser; the icon source is covered by the MIT licence in `Resources/LICENSE-OCTICONS.txt`.
-- Git executable must be on PATH; the plugin reads local Git status only.
+- Git executable must be on PATH; the plugin reads local Git status and cached remote-tracking refs only (never fetches).
 - Toolbar placement requests the right/end of the Play toolbar, but Unreal determines final layout.
 - Untracked files count as changes; ignored files don't.
 - Git runs synchronously. Exceptionally large working trees may briefly pause the editor during a status check.
