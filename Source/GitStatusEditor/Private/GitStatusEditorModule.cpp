@@ -129,6 +129,132 @@ void FGitStatusEditorModule::ShutdownModule()
     }
 }
 
+
+void FGitStatusEditorModule::OnGitMetadataChanged(const TArray<FFileChangeData>& /*Changes*/)
+{
+    // File watchers can dispatch on worker threads. Git runs on the editor tick.
+    bDirectoryChangePending.store(true);
+}
+
+void FGitStatusEditorModule::OnProjectFilesChanged(const TArray<FFileChangeData>& Changes)
+{
+    for (const FFileChangeData& Change : Changes)
+    {
+        FString ChangedPath = Change.Filename;
+        ChangedPath.ReplaceInline(TEXT("\\"), TEXT("/"));
+        bool bGenerated = false;
+        for (const TCHAR* Excluded : {
+                TEXT("/Saved/"), TEXT("/Intermediate/"), TEXT("/Binaries/"),
+                TEXT("/DerivedDataCache/"), TEXT("/BuildOutput/"), TEXT("/.vs/") })
+        {
+            if (ChangedPath.Contains(Excluded, ESearchCase::IgnoreCase))
+            {
+                bGenerated = true;
+                break;
+            }
+        }
+        if (!bGenerated)
+        {
+            bDirectoryChangePending.store(true);
+            break;
+        }
+    }
+}
+
+void FGitStatusEditorModule::WatchDirectory(const FString& Directory, bool bGitMetadata)
+{
+    if (!FPaths::DirectoryExists(Directory))
+    {
+        return;
+    }
+
+    FString Normalized = FPaths::ConvertRelativePathToFull(Directory);
+    FPaths::NormalizeDirectoryName(Normalized);
+    for (const FWatchedDirectory& Existing : WatchedDirectories)
+    {
+        if (Existing.Path.Equals(Normalized, ESearchCase::IgnoreCase))
+        {
+            return;
+        }
+    }
+
+    FDirectoryWatcherModule& Module =
+        FModuleManager::LoadModuleChecked<FDirectoryWatcherModule>(TEXT("DirectoryWatcher"));
+    IDirectoryWatcher* Watcher = Module.Get();
+    if (!Watcher)
+    {
+        return;
+    }
+
+    FDelegateHandle Handle;
+    const IDirectoryWatcher::FDirectoryChanged Callback = bGitMetadata
+        ? IDirectoryWatcher::FDirectoryChanged::CreateRaw(
+            this, &FGitStatusEditorModule::OnGitMetadataChanged)
+        : IDirectoryWatcher::FDirectoryChanged::CreateRaw(
+            this, &FGitStatusEditorModule::OnProjectFilesChanged);
+
+    if (Watcher->RegisterDirectoryChangedCallback_Handle(
+            Normalized, Callback, Handle,
+            IDirectoryWatcher::WatchOptions::IncludeDirectoryChanges))
+    {
+        FWatchedDirectory Entry;
+        Entry.Path = MoveTemp(Normalized);
+        Entry.Handle = Handle;
+        WatchedDirectories.Add(MoveTemp(Entry));
+    }
+}
+
+void FGitStatusEditorModule::RegisterWatchers()
+{
+    const FString Directory = FPaths::ConvertRelativePathToFull(FPaths::ProjectDir());
+
+    // Git worktrees have a private Git directory but share remote refs and
+    // packed-refs in the common Git directory.
+    FString GitDirectory;
+    FString CommonDirectory;
+    GitStatus::RunGit(Directory, TEXT("rev-parse --absolute-git-dir"), GitDirectory);
+    GitStatus::RunGit(Directory, TEXT("rev-parse --path-format=absolute --git-common-dir"), CommonDirectory);
+
+    if (!GitDirectory.IsEmpty())
+    {
+        WatchDirectory(GitDirectory, true); // HEAD, index, merge/rebase metadata
+    }
+    if (!CommonDirectory.IsEmpty())
+    {
+        WatchDirectory(CommonDirectory, true); // FETCH_HEAD and packed-refs
+        WatchDirectory(FPaths::Combine(CommonDirectory, TEXT("refs/heads")), true);
+        WatchDirectory(FPaths::Combine(CommonDirectory, TEXT("refs/remotes/origin")), true);
+    }
+
+    // Avoid noisy Unreal build/autosave folders. These roots cover the
+    // project assets and source files, including nested subdirectories.
+    WatchDirectory(Directory, false); // .uproject and other top-level files
+    for (const TCHAR* Folder : {
+            TEXT("Content"), TEXT("Config"), TEXT("Source"), TEXT("Plugins") })
+    {
+        WatchDirectory(FPaths::Combine(Directory, Folder), false);
+    }
+}
+
+void FGitStatusEditorModule::StopWatchers()
+{
+    if (FModuleManager::Get().IsModuleLoaded(TEXT("DirectoryWatcher")))
+    {
+        FDirectoryWatcherModule* Module =
+            FModuleManager::GetModulePtr<FDirectoryWatcherModule>(TEXT("DirectoryWatcher"));
+        IDirectoryWatcher* Watcher = Module ? Module->Get() : nullptr;
+        if (Watcher)
+        {
+            for (const FWatchedDirectory& Watched : WatchedDirectories)
+            {
+                Watcher->UnregisterDirectoryChangedCallback_Handle(Watched.Path, Watched.Handle);
+            }
+        }
+    }
+    WatchedDirectories.Empty();
+    bDirectoryChangePending.store(false);
+}
+
 void FGitStatusEditorModule::QueueRefresh(double DelaySeconds)
 {
     bRefreshRequested = true;
