@@ -46,7 +46,15 @@ if (-not (Test-Path -LiteralPath $runUAT -PathType Leaf)) {
 }
 
 $stamp = Get-Date -Format 'yyyyMMdd-HHmmssfff'
-$outputFolder = Join-Path $pluginRoot ('BuildOutput\GitStatus-UE' + $EngineVersion + '-Win64-' + $stamp)
+# Keep new packages outside the installed plugin so that replacing the old
+# plugin directory cannot accidentally delete the freshly built output.
+if ($projectFile) {
+    $buildOutputRoot = Join-Path $projectRoot 'Saved\GitStatusBuildOutput'
+}
+else {
+    $buildOutputRoot = Join-Path $pluginRoot 'BuildOutput'
+}
+$outputFolder = Join-Path $buildOutputRoot ('GitStatus-UE' + $EngineVersion + '-Win64-' + $stamp)
 $checkoutFolder = Join-Path $outputFolder 'SourceCheckout'
 $stageFolder = Join-Path $outputFolder 'SourcePlugin'
 $packageFolder = Join-Path $outputFolder 'GitStatus'

@@ -93,7 +93,7 @@ The script detects `EngineAssociation` from the adjacent project's `.uproject` w
 .\Tools\Build-GitStatus.ps1 -EngineVersion 5.7 -EngineRoot 'D:\Epic Games\UE_5.7'
 ```
 
-The helper invokes Unreal's `RunUAT.bat BuildPlugin` for `Win64` from a **clean staged source copy**, then checks that the packaged `GitStatus.uplugin` and compiled DLLs exist. On success, it writes a timestamped, ignored `BuildOutput/GitStatus-UE.../` folder containing a `GitStatus/` package and a ZIP. It **does not delete, replace, or overwrite** the project's installed plugin or existing build outputs.
+The helper invokes Unreal's `RunUAT.bat BuildPlugin` for `Win64` from a **clean staged source copy**, then checks that the packaged `GitStatus.uplugin` and compiled DLLs exist. On success, it writes a timestamped `Saved/GitStatusBuildOutput/GitStatus-UE.../` folder **outside the installed plugin** (when run inside an Unreal project), containing a `GitStatus/` package and a ZIP. When run from the standalone plugin checkout, it uses its local, ignored `BuildOutput/` folder. It **does not delete, replace, or overwrite** the project's installed plugin or existing build outputs.
 
 **To try the compiled package:** close Unreal, back up any local changes to `Plugins/GitStatus`, then copy the **packaged** `GitStatus/` folder into the Unreal project's `Plugins/` directory. For a team-ready release, test the package on a clean Windows machine with the matching engine, **without Visual Studio**. Only then commit the packaged binaries or distribute that tested package. Precompiled 5.7 and 5.8 binaries are not interchangeable.
 
@@ -105,11 +105,11 @@ The repository includes the **Unreal 5.7 Win64 test binary** under `Distribution
 
 **The Unreal 5.7 precompiled ZIP deliberately omits `Source/`.** If you installed it into a project and then run `Tools/Build-GitStatus.cmd` in Unreal 5.8, the original build helper reports `Could not find definition for module 'GitStatusEditor'`. UBT needs the module's `Source/GitStatusEditor/GitStatusEditor.Build.cs` file to build. That error occurs **before any C++ compilation**.
 
-The updated helper handles this automatically: if the required module source files are missing (including an empty `Source/` directory), it downloads the latest **main** branch of this repository into an isolated checkout inside `BuildOutput/`, stages only `GitStatus.uplugin`, `Source/` and `Resources/` (plus the README), and runs BuildPlugin on that clean staging copy. The installed plugin and any 5.7 DLL remain untouched. Git and internet access are required **only when local source is absent**.
+The updated helper handles this automatically: if the required module source files are missing (including an empty `Source/` directory), it downloads the latest **main** branch of this repository into an isolated build directory (under the Unreal project's `Saved/GitStatusBuildOutput/` when applicable), stages only `GitStatus.uplugin`, `Source/` and `Resources/` (plus the README), and runs BuildPlugin on that clean staging copy. The installed plugin and any 5.7 DLL remain untouched. Git and internet access are required **only when local source is absent**.
 
 If `Source/` exists but is incomplete, the script stops with a missing-file error instead of silently mixing local code with downloaded code. Restore the source from this repository in that case. An Unreal Engine 5.8 build still needs the appropriate **Windows C++ compiler/toolchain**; finding the module does not guarantee that the plugin source will compile without additional 5.8 API changes.
 
-After a successful build, close Unreal and install the packaged `GitStatus/` folder from `BuildOutput/` in your 5.8 project, replacing only the plugin folder after safeguarding local edits. Do **not** install or reuse a 5.7 `Binaries/` folder in Unreal 5.8.
+After a successful build, close Unreal and install the packaged `GitStatus/` folder from `Saved/GitStatusBuildOutput/` in your 5.8 project, replacing only the plugin folder after safeguarding local edits. Do **not** install or reuse a 5.7 `Binaries/` folder in Unreal 5.8.
 
 ## Technical notes
 
