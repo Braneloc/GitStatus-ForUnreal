@@ -12,6 +12,16 @@ Hover for Git status details. The number of changed/untracked entries is shown c
 
 The repository name is obtained from the local `origin` remote URL when available, with a fallback to the local repository folder. Supports Git worktrees and nested Unreal project folders. **Read-only:** does not switch branches, fetch, stage, pull, push or modify files.
 
+## Precompiled Windows test build — Unreal 5.7
+
+[Download GitStatus for Unreal 5.7 (Win64, binary-only test package)](Distributions/GitStatus-UE5.7-Win64-Test.zip)
+
+This build was supplied after a successful Unreal `BuildPlugin` run. It includes the compiled Windows x64 editor DLL, `UnrealEditor.modules`, the plugin descriptor and the branch-icon resources; it omits debugging symbols and intermediate build files. The archive reports **Unreal Engine 5.7.0**, Build ID `47537391` and GitStatus version `0.2.1`. The complete packaged build has **not yet been smoke-tested in a running Unreal Editor**.
+
+To test: **close Unreal**, preserve any edits to an existing `Plugins/GitStatus` directory, then extract the archive so that `GitStatus.uplugin` is located at `<UnrealProject>/Plugins/GitStatus/GitStatus.uplugin`. Launch that project with the matching Unreal 5.7 Windows installation. If it reports a different engine/module Build ID, don't manually force the build ID—use an appropriately compiled package instead.
+
+**Do not install this DLL in an Unreal 5.8 project.** The source-based installation instructions below remain suitable for compiling on other engine versions. This test archive is deliberately stored under `Distributions/`, outside the active plugin's `Binaries/` directory.
+
 ## Install into a project (recommended: normal project files)
 
 **Copy the plugin into the Unreal project and commit the files with that project.** Unreal must have the actual `GitStatus.uplugin` file on disk when it opens. A Git submodule can also work, but its files must first be initialised separately; otherwise Unreal displays a **Missing Plugin** dialog. Normal tracked files remove that extra setup step for people cloning and pulling projects with SourceTree or GitHub Desktop.
