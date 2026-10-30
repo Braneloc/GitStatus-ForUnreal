@@ -1,9 +1,9 @@
 {
   "FileVersion": 3,
-  "Version": 5,
-  "VersionName": "0.3.1",
+  "Version": 6,
+  "VersionName": "0.4.0",
   "FriendlyName": "GitStatus",
-  "Description": "Read-only Git status and Development divergence in the Unreal Editor toolbar, refreshed by file changes, focus and a two-minute fallback.",
+  "Description": "Git status toolbar plus local editor save and shutdown commands for Codex; no network listener or Git writes.",
   "Category": "Editor",
   "CreatedBy": "Braneloc and ChatGPT",
   "CanContainContent": false,
