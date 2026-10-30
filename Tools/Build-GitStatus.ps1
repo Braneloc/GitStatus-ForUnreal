@@ -63,7 +63,9 @@ $archivePath = Join-Path $outputFolder ('GitStatus-UE' + $EngineVersion + '-Win6
 $requiredSource = @(
     'Source\GitStatusEditor\GitStatusEditor.Build.cs',
     'Source\GitStatusEditor\Private\GitStatusEditorModule.cpp',
-    'Source\GitStatusEditor\Private\GitStatusEditorModule.h'
+    'Source\GitStatusEditor\Private\GitStatusEditorModule.h',
+    'Source\GitStatusEditor\Private\GitStatusEditorCommands.h',
+    'Source\GitStatusEditor\Private\GitStatusEditorCommands.cpp'
 )
 $missing = @($requiredSource | Where-Object {
     -not (Test-Path -LiteralPath (Join-Path $pluginRoot $_) -PathType Leaf)
@@ -163,6 +165,17 @@ if (-not (Test-Path -LiteralPath $binaryFolder -PathType Container)) {
 $dlls = @(Get-ChildItem -LiteralPath $binaryFolder -Recurse -Filter '*.dll' -File)
 if ($dlls.Count -eq 0) {
     throw 'Build reported success but no Win64 plugin DLL was produced.'
+}
+
+# Include the Codex command helper in binary-only packages as well.
+$packagedTools = Join-Path $packageFolder 'Tools'
+New-Item -ItemType Directory -Path $packagedTools -Force | Out-Null
+foreach ($toolFile in @('Invoke-GitStatusCommand.ps1', 'EDITOR-COMMANDS.md')) {
+    $sourcePath = Join-Path $sourceRoot (Join-Path 'Tools' $toolFile)
+    if (-not (Test-Path -LiteralPath $sourcePath -PathType Leaf)) {
+        throw "Required GitStatus control helper missing: $sourcePath"
+    }
+    Copy-Item -LiteralPath $sourcePath -Destination $packagedTools -Force
 }
 
 # Remove only our own temporary staging directories after a successful build.
