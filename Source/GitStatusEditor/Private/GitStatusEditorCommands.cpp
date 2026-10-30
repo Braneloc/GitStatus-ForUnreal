@@ -153,19 +153,19 @@ namespace GitStatusCommands
         if (Action == TEXT("SaveCurrentLevel"))
         {
             UWorld* World = GEditor ? GEditor->GetEditorWorldContext().World() : nullptr;
-            if (!World || !World->PersistentLevel)
+            if (!World || !World->GetCurrentLevel())
             {
                 Message = TEXT("There is no active editor level to save.");
                 return false;
             }
-            return SaveOnePackage(World->PersistentLevel->GetOutermost(), Message);
+            return SaveOnePackage(World->GetCurrentLevel()->GetOutermost(), Message);
         }
 
         if (Action == TEXT("SaveFile"))
         {
             if (AssetPath.IsEmpty())
             {
-                Message = TEXT("SaveFile needs asset_path (a loaded Unreal package or asset filename).");
+                Message = TEXT("SaveFile needs AssetPath (a loaded Unreal package or asset filename).");
                 return false;
             }
             UPackage* Package = nullptr;
