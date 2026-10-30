@@ -7,7 +7,9 @@
 #include "Misc/FileHelper.h"
 #include "Misc/PackageName.h"
 #include "Misc/Paths.h"
+#include "Dom/JsonObject.h"
 #include "Serialization/JsonReader.h"
+#include "Serialization/JsonWriter.h"
 #include "Serialization/JsonSerializer.h"
 #include "UObject/Package.h"
 #include "UObject/UObjectGlobals.h"
@@ -18,7 +20,7 @@ namespace GitStatusCommands
 {
     // These files are local to an Unreal project, ignored by Git and not network-accessible.
     // Only explicit, fixed editor operations are accepted; arbitrary console commands are not.
-    static FString ControlDirectory() => FPaths::Combine(FPaths::ProjectSavedDir(), TEXT("GitStatusControl"));
+    static FString ControlDirectory() { return FPaths::Combine(FPaths::ProjectSavedDir(), TEXT("GitStatusControl")); }
 
     static void GetDirtyPackages(TArray<UPackage*>& Packages)
     {
