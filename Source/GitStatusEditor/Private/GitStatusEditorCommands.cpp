@@ -48,8 +48,8 @@ namespace GitStatusCommands
 
         TArray<UPackage*> Packages;
         Packages.Add(Package);
-        const bool bSaved = UEditorLoadingAndSavingUtils::SavePackages(Packages, true);
-        if (!bSaved || Package->IsDirty())
+        const bool SaveSuccessful = UEditorLoadingAndSavingUtils::SavePackages(Packages, true);
+        if (!SaveSuccessful || Package->IsDirty())
         {
             Message = FString::Printf(TEXT("Save failed or package remains dirty: %s"), *Package->GetName());
             return false;
@@ -136,9 +136,9 @@ namespace GitStatusCommands
         return true;
     }
 
-    static bool Execute(const FString& Action, const FString& AssetPath, FString& Message, bool& bExit)
+    static bool Execute(const FString& Action, const FString& AssetPath, FString& Message, bool& ExitEditor)
     {
-        bExit = false;
+        ExitEditor = false;
 
         if (Action == TEXT("SaveAll") || Action == TEXT("SaveAndShutdown"))
         {
@@ -146,7 +146,7 @@ namespace GitStatusCommands
             {
                 return false;
             }
-            bExit = Action == TEXT("SaveAndShutdown");
+            ExitEditor = Action == TEXT("SaveAndShutdown");
             return true;
         }
 
@@ -182,7 +182,7 @@ namespace GitStatusCommands
                 return false;
             }
             Message = TEXT("Clean editor shutdown requested.");
-            bExit = true;
+            ExitEditor = true;
             return true;
         }
 
@@ -210,7 +210,7 @@ namespace GitStatusCommands
         }
 
         const FString CommandFile = FPaths::Combine(CommandsDirectory, Files[0]);
-        const FString RequestId = FPaths::GetBaseFilename(Files[0]);
+        const FString RequestIdentifier = FPaths::GetBaseFilename(Files[0]);
         const FString ResultsDirectory = FPaths::Combine(ControlDirectory(), TEXT("Results"));
         IFileManager::Get().MakeDirectory(*ResultsDirectory, true);
 
@@ -219,8 +219,8 @@ namespace GitStatusCommands
         FString AssetPath;
         FString CreatedUtc;
         FString Message;
-        bool bExit = false;
-        bool bSuccess = false;
+        bool ExitEditor = false;
+        bool Successful = false;
 
         if (!FFileHelper::LoadFileToString(Content, *CommandFile))
         {
@@ -231,19 +231,19 @@ namespace GitStatusCommands
             TSharedPtr<FJsonObject> Request;
             const TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(Content);
             if (!FJsonSerializer::Deserialize(Reader, Request) || !Request.IsValid()
-                || !Request->TryGetStringField(TEXT("action"), Action)
-                || !Request->TryGetStringField(TEXT("created_utc"), CreatedUtc))
+                || !Request->TryGetStringField(TEXT("Action"), Action)
+                || !Request->TryGetStringField(TEXT("CreatedUtc"), CreatedUtc))
             {
-                Message = TEXT("Invalid command JSON: action and created_utc are required.");
+                Message = TEXT("Invalid command JSON: Action and CreatedUtc are required.");
             }
             else
             {
-                Request->TryGetStringField(TEXT("asset_path"), AssetPath);
+                Request->TryGetStringField(TEXT("AssetPath"), AssetPath);
 
                 FDateTime IssuedAt;
                 if (!FDateTime::ParseIso8601(*CreatedUtc, IssuedAt))
                 {
-                    Message = TEXT("Invalid created_utc ISO timestamp.");
+                    Message = TEXT("Invalid CreatedUtc timestamp.");
                 }
                 else
                 {
@@ -254,22 +254,22 @@ namespace GitStatusCommands
                     }
                     else
                     {
-                        bSuccess = Execute(Action, AssetPath, Message, bExit);
+                        Successful = Execute(Action, AssetPath, Message, ExitEditor);
                     }
                 }
             }
         }
 
         const TSharedRef<FJsonObject> Response = MakeShared<FJsonObject>();
-        Response->SetStringField(TEXT("request_id"), RequestId);
-        Response->SetStringField(TEXT("action"), Action);
-        Response->SetBoolField(TEXT("success"), bSuccess);
-        Response->SetStringField(TEXT("message"), Message);
+        Response->SetStringField(TEXT("RequestIdentifier"), RequestIdentifier);
+        Response->SetStringField(TEXT("Action"), Action);
+        Response->SetBoolField(TEXT("Success"), Successful);
+        Response->SetStringField(TEXT("Message"), Message);
         FString ResultText;
         const TSharedRef<TJsonWriter<>> Writer = TJsonWriterFactory<>::Create(&ResultText);
         FJsonSerializer::Serialize(Response, Writer);
 
-        const FString ResultFile = FPaths::Combine(ResultsDirectory, RequestId + TEXT(".json"));
+        const FString ResultFile = FPaths::Combine(ResultsDirectory, RequestIdentifier + TEXT(".json"));
         if (!FFileHelper::SaveStringToFile(
                 ResultText, *ResultFile, FFileHelper::EEncodingOptions::ForceUTF8WithoutBOM))
         {
@@ -280,7 +280,7 @@ namespace GitStatusCommands
 
         IFileManager::Get().Delete(*CommandFile, false, true);
         UE_LOG(LogTemp, Log, TEXT("GitStatus command %s: %s"), *Action, *Message);
-        if (bSuccess && bExit)
+        if (Successful && ExitEditor)
         {
             FPlatformMisc::RequestExit(false, TEXT("GitStatus local editor command"));
         }
