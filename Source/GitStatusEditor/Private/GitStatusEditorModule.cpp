@@ -1,4 +1,5 @@
 #include "GitStatusEditorModule.h"
+#include "GitStatusEditorCommands.h"
 
 #include "Brushes/SlateImageBrush.h"
 #include "DirectoryWatcherModule.h"
@@ -271,6 +272,8 @@ void FGitStatusEditorModule::OnApplicationActivationChanged(const bool bIsActive
 
 bool FGitStatusEditorModule::Tick(float DeltaSeconds)
 {
+    // Process local Codex save/shutdown requests on Unreal's editor thread.
+    GitStatusCommands::Poll();
     if (bDirectoryChangePending.exchange(false))
     {
         QueueRefresh(GitStatus::DebounceSeconds);
