@@ -10,6 +10,7 @@ public class GitStatusEditor : ModuleRules
         {
             "Core",
             "CoreUObject",
+            "Engine",
             "Slate",
             "SlateCore",
             "ToolMenus",
@@ -20,3 +21,4 @@ public class GitStatusEditor : ModuleRules
         });
     }
 }
+
