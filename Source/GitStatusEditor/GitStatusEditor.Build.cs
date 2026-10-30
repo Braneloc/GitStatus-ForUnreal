@@ -14,7 +14,9 @@ public class GitStatusEditor : ModuleRules
             "SlateCore",
             "ToolMenus",
             "Projects",
-            "DirectoryWatcher"
+            "DirectoryWatcher",
+            "UnrealEd",
+            "Json"
         });
     }
 }
