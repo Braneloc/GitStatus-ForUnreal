@@ -38,15 +38,15 @@ $CommandsDirectory = Join-Path $ControlDirectory 'Commands'
 $ResultsDirectory = Join-Path $ControlDirectory 'Results'
 New-Item -ItemType Directory -Force -Path $CommandsDirectory, $ResultsDirectory | Out-Null
 
-$RequestId = [guid]::NewGuid().ToString('N')
-$CommandFile = Join-Path $CommandsDirectory "$RequestId.json"
-$TemporaryFile = Join-Path $CommandsDirectory "$RequestId.tmp"
-$ResultFile = Join-Path $ResultsDirectory "$RequestId.json"
+$RequestIdentifier = [guid]::NewGuid().ToString('N')
+$CommandFile = Join-Path $CommandsDirectory "$RequestIdentifier.json"
+$TemporaryFile = Join-Path $CommandsDirectory "$RequestIdentifier.tmp"
+$ResultFile = Join-Path $ResultsDirectory "$RequestIdentifier.json"
 
 $Request = @{
-    action = $Action
-    asset_path = $AssetPath
-    created_utc = [DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ssZ', [Globalization.CultureInfo]::InvariantCulture)
+    Action = $Action
+    AssetPath = $AssetPath
+    CreatedUtc = [DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ssZ', [Globalization.CultureInfo]::InvariantCulture)
 } | ConvertTo-Json -Compress
 
 # Atomic rename prevents Unreal from reading a partially written command.
@@ -58,10 +58,10 @@ while ($Watch.Elapsed.TotalSeconds -lt $TimeoutSeconds) {
     if (Test-Path -LiteralPath $ResultFile) {
         try {
             $Response = Get-Content -LiteralPath $ResultFile -Raw -Encoding UTF8 | ConvertFrom-Json
-            if ($Response.request_id -eq $RequestId) {
+            if ($Response.RequestIdentifier -eq $RequestIdentifier) {
                 Remove-Item -LiteralPath $ResultFile -Force
                 $Response | ConvertTo-Json -Compress
-                if (-not $Response.success) {
+                if (-not $Response.Success) {
                     exit 1
                 }
                 exit 0
