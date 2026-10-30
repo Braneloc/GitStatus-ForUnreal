@@ -1,6 +1,14 @@
 # GitStatus for Unreal
 
-A lightweight, **editor-only C++ Unreal Engine plugin** showing the current Git repository, branch, working-tree status, and how far the current branch is ahead of or behind the team's shared branch alongside the Level Editor's Play controls. No Blueprint nodes, buttons, GitHub login or network requests.
+A lightweight, **editor-only C++ Unreal Engine plugin** showing the current Git repository, branch, working-tree status, and how far the current branch is ahead of or behind the team's shared branch alongside the Level Editor's Play controls. No Blueprint nodes, GitHub login or network requests. Git status remains read-only.
+
+## Codex editor control (source version 0.4.0 — rebuild required)
+
+GitStatus 0.4.0 adds an allowlisted **local editor save/shutdown interface** that works while Unreal is open. It can save a named loaded asset or map, save the current level, save all dirty packages, shut down only when nothing is unsaved, or save all and shut down gracefully. Commands write JSON files into the project's `Saved/GitStatusControl` directory; the editor returns success/failure messages, so Codex can wait for a confirmed result. No arbitrary console commands or network listener are exposed.
+
+Use `Tools/Invoke-GitStatusCommand.ps1` with the project root and one of `SaveFile`, `SaveCurrentLevel`, `SaveAll`, `Shutdown`, or `SaveAndShutdown`. Examples, important limitations, and safety details are in **[Tools/EDITOR-COMMANDS.md](Tools/EDITOR-COMMANDS.md)**. The build helper includes the command script in packaged distributions.
+
+**Only source is updated:** neither Unreal 5.7 nor 5.8 builds have been compiled or runtime-tested for 0.4.0. Previous binary packages are unchanged and do not support commands. Install a newly built, tested plugin before attempting to use this interface.
 
 GitHub's **git-branch Octicon** indicates local status:
 
@@ -35,7 +43,7 @@ The repository name is obtained from the local `origin` remote URL when availabl
 - A **two-minute fallback check** catches missed events, directories that could not be watched, and changes outside those project folders.
 - A light one-second scheduling tick checks for pending work; **it does not run Git once a second**.
 
-GitStatus remains **read-only**: it does not fetch, merge, pull, push, or change Git upstream configuration. Use Fetch Origin in SourceTree/GitHub Desktop to update remote references, and GitStatus will notice the changes. The previous 15-second Git polling has been removed.
+GitStatus's **Git features remain read-only**: they do not fetch, merge, pull, push, or change Git upstream configuration. Use Fetch Origin in SourceTree/GitHub Desktop to update remote references, and GitStatus will notice the changes. The previous 15-second Git polling has been removed.
 
 **Version 0.3.1 has not yet been compiled and runtime-tested on Unreal 5.7 or 5.8.** The published 5.7 ZIP is still the working 0.2.1 binary. Do not replace the team build until 0.3.1 has been tested.
 
